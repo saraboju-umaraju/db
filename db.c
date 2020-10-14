@@ -219,7 +219,9 @@ int remove_record(unsigned long long index)
     }
 
     if (found == 1) {
-        memmove( ((char*)ptr)+off, ((char*)ptr) + last_off, sizeof(struct record) );
+        read(fd, &record, sizeof(struct record));
+        record.index = index;
+        memmove( ((char*)ptr)+off, &record, sizeof(struct record) );
         update_header(fd, -1);
         ftruncate(fd, (off_t)(size-(sizeof(struct record))));
         munmap(ptr, size);
