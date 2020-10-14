@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+ #include <sys/mman.h>
 #include <fcntl.h>
 #include <errno.h>
 extern long long int _atoi(char *buf);
@@ -111,7 +112,7 @@ void restore_offset(int fd, unsigned long long off)
     lseek(fd, off, SEEK_SET);
 }
 
-void update_header(int fd)
+void update_header(int fd, int dis)
 {
     unsigned long long _off = 0;
     struct header header ;
@@ -119,7 +120,7 @@ void update_header(int fd)
     save_offset(fd, &_off);
     lseek(fd, 0, SEEK_SET);
     read(fd, &header, sizeof(struct header));
-    header.how_many += 1;
+    header.how_many += (dis);
     lseek(fd, 0, SEEK_SET);
     write(fd, &header, sizeof(struct header));
     restore_offset(fd, _off);
@@ -151,8 +152,86 @@ int add_record(const char *file_name)
         close(fd);
         exit(1);
     }
-    update_header(fd);
+    update_header(fd, 1);
     close(fd);
+    return 0;
+}
+
+void hexdump(char *buf, int size)
+{
+	int index = 0 ;
+    printf ("size : %d\n", size);
+    for (; size ; size--) {
+        if (*buf)
+            printf("%2x ",(*buf) & 0XFF);
+        buf++;
+    }
+}
+
+void *map_file(int fd, size_t *size)
+{
+    struct stat sb;
+    void *ptr = NULL;
+
+    fstat(fd, &sb);
+    ptr = mmap(NULL, sb.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
+    if (NULL == ptr) {
+        printf ("Failed mapping \n");
+        exit(1);
+        close (fd);
+    }
+    //hexdump(ptr, sb.st_size);
+    /* find the index */
+    /* find the last record */
+    /* memmove last record to index's postion */
+    *size = sb.st_size;
+    return ptr;
+}
+
+int remove_record(unsigned long long index)
+{
+    int out = 0;
+    struct record record;
+    int found = 0;
+    int fd = open_meta_file();
+    unsigned long long off = 0;
+    unsigned long long last_off = 0;
+    size_t size = 0;
+
+    void *ptr = map_file(fd, &size);
+
+    lseek(fd, sizeof(struct header), SEEK_CUR);
+
+    while(1) {
+        memset(&record, 0, sizeof(struct record));
+        save_offset(fd, &off);
+        out = read(fd, &record, sizeof(struct record));
+        if (out == 0)
+            break;
+        if (index == record.index) {
+            /* Now find last record */
+            found = 1;
+            lseek(fd, 0, SEEK_END);
+            lseek(fd, -1 * (sizeof(struct record)), SEEK_END);
+            save_offset(fd, &last_off);
+            break;
+        }
+    }
+
+    if (found == 1) {
+        memmove( ((char*)ptr)+off, ((char*)ptr) + last_off, sizeof(struct record) );
+        update_header(fd, -1);
+        ftruncate(fd, (off_t)(size-(sizeof(struct record))));
+        munmap(ptr, size);
+    }else {
+        printf ("Didnt find mentioned index\n");
+    }
+    close(fd);
+}
+
+int restore_it(unsigned long long index)
+{
+    remove_record(index);
     return 0;
 }
 
@@ -271,7 +350,7 @@ int main(int c, char *v[])
     if (global.delete) {
         delete_it(global.name);
     }else if (global.restore) {
-        printf("restoring %lu\n", global.index);
+        restore_it(global.index);
     }else if (global.list) {
         list_them();
     }
