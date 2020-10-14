@@ -48,7 +48,7 @@ process_args(int argc, char **argv)
     extern int optind;
     int c, err = 0;
     int rlfag=0, dflag=0, fflag=0;
-    static char usage[] = "usage: %s -d filename -r index -l -h\n";
+    static char usage[] = "usage: %s [-d filename] [-r index] [-l] [-h]\n";
 
     while ((c = getopt(argc, argv, "d:r:lh")) != -1)
         switch (c) {
@@ -226,7 +226,7 @@ int remove_record(unsigned long long index)
         ftruncate(fd, (off_t)(size-(sizeof(struct record))));
         munmap(ptr, size);
     }else {
-        printf ("Didnt find mentioned index\n");
+        printf ("couldn't find index!!\n");
     }
     close(fd);
 }
