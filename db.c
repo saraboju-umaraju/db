@@ -229,6 +229,8 @@ int remove_record(unsigned long long index)
         munmap(ptr, size);
     }else {
         printf ("couldn't find index!!\n");
+        close(fd);
+        return 1;
     }
     close(fd);
 
@@ -238,8 +240,7 @@ int remove_record(unsigned long long index)
 
 int restore_it(unsigned long long index)
 {
-    remove_record(index);
-    return 0;
+    return remove_record(index);
 }
 
 int delete_it(const char *file_name)
@@ -251,7 +252,7 @@ int delete_it(const char *file_name)
 
 void display_record(struct record *record)
 {
-    printf ("index = %lu name : %s\n", record->index, record->name);
+    printf ("index = %3lu name : %s\n", record->index, record->name);
 }
 
 void print_header(int fd)
@@ -357,7 +358,7 @@ int main(int c, char *v[])
     if (global.delete) {
         delete_it(global.name);
     }else if (global.restore) {
-        restore_it(global.index);
+        return restore_it(global.index);
     }else if (global.list) {
         list_them();
     }
