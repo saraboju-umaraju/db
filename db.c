@@ -197,6 +197,7 @@ int remove_record(unsigned long long index)
     unsigned long long off = 0;
     unsigned long long last_off = 0;
     size_t size = 0;
+    unsigned char filename[4096] = {};
 
     void *ptr = map_file(fd, &size);
 
@@ -210,6 +211,7 @@ int remove_record(unsigned long long index)
             break;
         if (index == record.index) {
             /* Now find last record */
+            strcpy(filename, record.name);
             found = 1;
             lseek(fd, 0, SEEK_END);
             lseek(fd, -1 * (sizeof(struct record)), SEEK_END);
@@ -229,6 +231,9 @@ int remove_record(unsigned long long index)
         printf ("couldn't find index!!\n");
     }
     close(fd);
+
+    printf("%s\n", filename);
+    return 0;
 }
 
 int restore_it(unsigned long long index)
