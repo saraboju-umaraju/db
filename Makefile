@@ -6,3 +6,5 @@ db : db.o _val.o
 
 clean c : 
 	/bin/rm *.o db -f
+install : db
+	sudo install db /usr/bin/
