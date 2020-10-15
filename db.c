@@ -18,9 +18,11 @@ struct globals {
     unsigned long list;
     unsigned long index;
     unsigned char *name;
+    unsigned char *proxy;
 };
 struct record {
     unsigned char name[2*1024];
+    unsigned char proxy[256];
     unsigned long index;
     unsigned long pad1;
     unsigned long pad2;
@@ -47,14 +49,18 @@ process_args(int argc, char **argv)
     extern char *optarg;
     extern int optind;
     int c, err = 0;
-    int rlfag=0, dflag=0, fflag=0;
+    int rlfag=0, dflag=0, pflag=0;
     static char usage[] = "usage: %s [-d filename] [-r index] [-l] [-h]\n";
 
-    while ((c = getopt(argc, argv, "d:r:lh")) != -1)
+    while ((c = getopt(argc, argv, "d:r:lhp:")) != -1)
         switch (c) {
             case 'd':
                 global.delete = 1;
                 global.name = optarg;
+                break;
+            case 'p':
+                global.proxy = optarg;
+                pflag = 1;
                 break;
             case 'r':
                 global.restore = 1;
@@ -69,6 +75,11 @@ process_args(int argc, char **argv)
                 err = 1;
                 break;
         }
+    if (global.delete != pflag) {
+        fprintf(stderr, usage, argv[0]);
+        return (1);
+    }
+
     if (1 != (global.delete + global.restore + global.list)) {
         fprintf(stderr, usage, argv[0]);
         return (1);
@@ -137,7 +148,7 @@ unsigned long long get_current_index(int fd)
     return header.how_many;
 }
 
-int add_record(const char *file_name)
+int add_record(const char *file_name, const char *proxy)
 {
     int fd = open_meta_file();
     struct record record;
@@ -145,6 +156,7 @@ int add_record(const char *file_name)
     lseek(fd, 0, SEEK_END);
     memset(&record, 0, sizeof(struct record));
     strncpy(record.name, file_name, strlen(file_name));
+    strncpy(record.proxy, proxy, strlen(proxy));
     unsigned long long cur_index = get_current_index(fd);
     record.index = cur_index;
     int out = write(fd, &record, sizeof(struct record));
@@ -198,6 +210,7 @@ int remove_record(unsigned long long index)
     unsigned long long last_off = 0;
     size_t size = 0;
     unsigned char filename[4096] = {};
+    unsigned char proxyname[256] = {};
 
     void *ptr = map_file(fd, &size);
 
@@ -212,6 +225,7 @@ int remove_record(unsigned long long index)
         if (index == record.index) {
             /* Now find last record */
             strcpy(filename, record.name);
+            strcpy(proxyname, record.proxy);
             found = 1;
             lseek(fd, 0, SEEK_END);
             lseek(fd, -1 * (sizeof(struct record)), SEEK_END);
@@ -234,7 +248,7 @@ int remove_record(unsigned long long index)
     }
     close(fd);
 
-    printf("%s\n", filename);
+    printf("%s %s\n", filename, proxyname);
     return 0;
 }
 
@@ -243,16 +257,16 @@ int restore_it(unsigned long long index)
     return remove_record(index);
 }
 
-int delete_it(const char *file_name)
+int delete_it(const char *file_name, const char *proxy)
 {
     printf("deleting %s\n", file_name);
-    add_record(file_name);
+    add_record(file_name, proxy);
     return 0;
 }
 
 void display_record(struct record *record)
 {
-    printf ("index = %3lu name : %s\n", record->index, record->name);
+    printf ("index = %3lu proxy = %-10s name : %s\n", record->index, record->proxy, record->name);
 }
 
 void print_header(int fd)
@@ -356,7 +370,7 @@ int main(int c, char *v[])
     }
 
     if (global.delete) {
-        delete_it(global.name);
+        delete_it(global.name, global.proxy);
     }else if (global.restore) {
         return restore_it(global.index);
     }else if (global.list) {
