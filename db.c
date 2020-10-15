@@ -242,7 +242,6 @@ int remove_record(unsigned long long index)
         ftruncate(fd, (off_t)(size-(sizeof(struct record))));
         munmap(ptr, size);
     }else {
-        printf ("couldn't find index!!\n");
         close(fd);
         return 1;
     }
@@ -259,7 +258,6 @@ int restore_it(unsigned long long index)
 
 int delete_it(const char *file_name, const char *proxy)
 {
-    printf("deleting %s\n", file_name);
     add_record(file_name, proxy);
     return 0;
 }
