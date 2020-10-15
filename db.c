@@ -264,7 +264,7 @@ int delete_it(const char *file_name, const char *proxy)
 
 void display_record(struct record *record)
 {
-    printf ("index = %3lu proxy = %-10s name : %s\n", record->index, record->proxy, record->name);
+    printf ("index = %3lu proxy = %-20s name : %s\n", record->index, record->proxy, record->name);
 }
 
 void print_header(int fd)
