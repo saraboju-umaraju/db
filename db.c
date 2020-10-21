@@ -7,17 +7,22 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <libgen.h>
+
 extern long long int _atoi(char *buf);
 static char *meta_file_name =
     "/home/usaraboju/.deleted-stuff/.uma_meta_file.db";
 
 int delete = 0;
 
+int is_dry_run = 0;
+
 struct globals {
     unsigned long delete;
     unsigned long restore;
     unsigned long list;
     unsigned long index;
+    unsigned long show;
     unsigned char *name;
     unsigned char *proxy;
 };
@@ -51,9 +56,9 @@ process_args(int argc, char **argv)
     extern int optind;
     int c, err = 0;
     int rlfag = 0, dflag = 0, pflag = 0;
-    static char usage[] = "usage: %s [-d filename] [-r index] [-l] [-h]\n";
+    static char usage[] = "usage: %s [-d filename] [-r index] [-l] [-h] [-n filename]\n";
 
-    while ((c = getopt(argc, argv, "d:r:lhp:")) != -1)
+    while ((c = getopt(argc, argv, "n:d:r:lhp:")) != -1)
         switch (c) {
         case 'd':
             global.delete = 1;
@@ -70,6 +75,10 @@ process_args(int argc, char **argv)
         case 'l':
             global.list = 1;
             break;
+        case 'n':
+            global.show = 1;
+            global.name = optarg;
+            break;
         case 'h':
             break;
         case '?':
@@ -81,7 +90,7 @@ process_args(int argc, char **argv)
         return (1);
     }
 
-    if (1 != (global.delete + global.restore + global.list)) {
+    if (1 != (global.show + global.delete + global.restore + global.list)) {
         fprintf(stderr, usage, argv[0]);
         return (1);
     } else if ((optind + 1) > argc && 0) {
@@ -113,6 +122,13 @@ open_meta_file(void)
         exit(1);
 
     return fd;
+}
+
+void
+display_record(struct record *record)
+{
+    printf("index = %3lu proxy = %-20s name : %s\n", record->index,
+           record->proxy, record->name);
 }
 
 void
@@ -223,8 +239,6 @@ remove_record(unsigned long long index)
     unsigned char filename[4096] = { };
     unsigned char proxyname[256] = { };
 
-    void *ptr = map_file(fd, &size);
-
     lseek(fd, sizeof(struct header), SEEK_CUR);
 
     while (1) {
@@ -246,12 +260,15 @@ remove_record(unsigned long long index)
     }
 
     if (found == 1) {
-        read(fd, &record, sizeof(struct record));
-        record.index = index;
-        memmove(((char *)ptr) + off, &record, sizeof(struct record));
-        update_header(fd, -1);
-        ftruncate(fd, (off_t) (size - (sizeof(struct record))));
-        munmap(ptr, size);
+        if (is_dry_run == 0) {
+            void *ptr = map_file(fd, &size);
+            read(fd, &record, sizeof(struct record));
+            record.index = index;
+            memmove(((char *)ptr) + off, &record, sizeof(struct record));
+            update_header(fd, -1);
+            ftruncate(fd, (off_t) (size - (sizeof(struct record))));
+            munmap(ptr, size);
+        }
     } else {
         close(fd);
         return 1;
@@ -260,6 +277,27 @@ remove_record(unsigned long long index)
 
     printf("%s %s\n", filename, proxyname);
     return 0;
+}
+
+int
+show_it(const char *name)
+{
+
+    int out = 0;
+    struct record record;
+    int fd = open_meta_file();
+
+    lseek(fd, sizeof(struct header), SEEK_CUR);
+
+    while (1) {
+        memset(&record, 0, sizeof(struct record));
+        out = read(fd, &record, sizeof(struct record));
+        if (out == 0)
+            break;
+        if (0 == strcmp(name, record.proxy)) {
+            display_record(&record);
+        }
+    }
 }
 
 int
@@ -273,13 +311,6 @@ delete_it(const char *file_name, const char *proxy)
 {
     add_record(file_name, proxy);
     return 0;
-}
-
-void
-display_record(struct record *record)
-{
-    printf("index = %3lu proxy = %-20s name : %s\n", record->index,
-           record->proxy, record->name);
 }
 
 void
@@ -379,6 +410,13 @@ check_meta_file(void)
 int
 main(int c, char *v[])
 {
+
+    char *dry = getenv("DRY");
+
+    if ( dry && 0 == strcmp ("dry", dry) ) {
+        is_dry_run = 1;
+    }
+
     if (process_args(c, v)) {
         return 1;
     }
@@ -393,6 +431,8 @@ main(int c, char *v[])
         return restore_it(global.index);
     } else if (global.list) {
         list_them();
+    } else if (global.show) {
+        show_it(global.name);
     }
     return 0;
 }

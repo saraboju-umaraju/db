@@ -1,4 +1,4 @@
-CFLAGS += -ggdb -Wall
+CFLAGS += -ggdb 
 TARGET_ARCH=
 CC = gcc
 db : db.o _val.o
