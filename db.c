@@ -9,6 +9,13 @@
 #include <errno.h>
 #include <libgen.h>
 
+const char *red = "\033[0;31m";
+const char *nc = "\033[0m";
+const char *plc = "\033[0;32m";
+const char *green = "\033[0;32m";
+const char *yellow = "\033[0;33m";
+const char *blue = "\033[0;36m";
+
 extern long long int _atoi(char *buf);
 static char *meta_file_name =
     "/home/usaraboju/.deleted-stuff/.uma_meta_file.db";
@@ -56,7 +63,8 @@ process_args(int argc, char **argv)
     extern int optind;
     int c, err = 0;
     int rlfag = 0, dflag = 0, pflag = 0;
-    static char usage[] = "usage: %s [-d filename] [-r index] [-l] [-h] [-n filename]\n";
+    static char usage[] =
+        "usage: %s [-d filename] [-r index] [-l] [-h] [-n filename]\n";
 
     while ((c = getopt(argc, argv, "n:d:r:lhp:")) != -1)
         switch (c) {
@@ -127,8 +135,9 @@ open_meta_file(void)
 void
 display_record(struct record *record)
 {
-    printf("index = %3lu proxy = %-20s name : %s\n", record->index,
-           record->proxy, record->name);
+    printf("%sindex%s = %s%3lu%s %sproxy%s = %s%-20s%s %sname%s : %s%s%s\n",
+           red, nc, green, record->index, nc, red, nc, green, record->proxy, nc,
+           red, nc, green, record->name, nc);
 }
 
 void
@@ -323,7 +332,7 @@ print_header(int fd)
     lseek(fd, 0, SEEK_SET);
     read(fd, &header, sizeof(struct header));
     restore_offset(fd, _off);
-    printf("Number of files : %lu\n", header.how_many);
+    printf("%sNumber of files%s : %s%lu%s\n", red, nc, green, header.how_many, nc);
 }
 
 int
@@ -413,7 +422,7 @@ main(int c, char *v[])
 
     char *dry = getenv("DRY");
 
-    if ( dry && 0 == strcmp ("dry", dry) ) {
+    if (dry && 0 == strcmp("dry", dry)) {
         is_dry_run = 1;
     }
 
